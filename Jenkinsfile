@@ -53,13 +53,45 @@ pipeline {
                 }
             }
         }
-        stage('deploy to EC2') {
+        stage('Provision Infrastructure') {
+            environment {
+                AWS_ACCESS_KEY_ID =  credentials('jk_aws_access_key_id')
+                AWS_SECRET_ACCESS_KEY = credentials('jk_aws_secret_access_key')
+                TF_VAR_env_prefix = "test"
+            }
             steps {
                 script {
-                    def shellCmd = "bash ./server-cmds.sh ${IMAGE_NAME}"
-                    def ec2Instance = "ec2-user@35.178.62.52"
+                    dir(terraform) {
+                        sh "terraform init"
+                        sh "terraform apply --auto-approve"
+                        EC2_PUBLIC_IP = sh(
+                            script: "terraform output ec2-public_ip",
+                            returnStdout: true
+                        ).trim()
 
-                    sshagent (credentials: ['ec2-server-key']) {
+                    }
+                }
+            }
+        }
+        stage('Deploy to EC2') {
+            environment {
+                DOCKER_CREDS = credentials('docker-hub')
+            }
+
+            steps {
+                script {
+
+                    echo "waiting for EC2 server to initialize"
+                    sleep(time: 90, unit: "SECONDS")
+
+                    echo 'deploying docker image to EC2...'
+                    echo "${EC2_PUBLIC_IP}"
+
+
+                    def shellCmd = "bash ./server-cmds.sh ${IMAGE_NAME} ${DOCKER_CREDS_USR} ${DOCKER_CREDS_PSW}"
+                    def ec2Instance = "ec2-user@${EC2_PUBLIC_IP}"
+
+                    sshagent (credentials: ['ssh-key-aws']) {
                        sh "scp -o StrictHostKeyChecking=no server-cmds.sh ${ec2Instance}:/home/ec2-user"
                        sh "scp -o StrictHostKeyChecking=no docker-compose.yaml ${ec2Instance}:/home/ec2-user"
                        sh "ssh -o StrictHostKeyChecking=no ${ec2Instance} ${shellCmd}"
@@ -70,15 +102,7 @@ pipeline {
         stage('commit version update') {
             steps {
                 script {
-                    // withCredentials([usernamePassword(credentialsId: 'gitlab-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                    //     //git config here for the first time run
-                    //     sh 'git config --global user.email "jenkins@example.com"'
-                    //     sh 'git config --global user.name "jenkins"'
-                    //     sh 'git remote set-url origin https://$USER:$PASS@gitlab.com/twn-devops-bootcamp/latest/08-jenkins/jenkins-exercises.git'
-                    //     sh 'git add .'
-                    //     sh 'git commit -m "ci: version bump"'
-                    //     sh 'git push origin HEAD:jenkins-jobs'
-                    // }
+                    
                     sshagent (credentials: ['github-ssh-credential']) {
                         sh 'git config --global user.email "jenkins@example.com"'
                         sh 'git config --global user.name "jenkins"'
