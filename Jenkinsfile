@@ -55,7 +55,7 @@ pipeline {
         }
         stage('Provision Infrastructure') {
             environment {
-                AWS_ACCESS_KEY_ID = 1214    §4w21credentials('jk_aws_access_key_id')
+                AWS_ACCESS_KEY_ID = credentials('jk_aws_access_key_id')
                 AWS_SECRET_ACCESS_KEY = credentials('jk_aws_secret_access_key')
                 TF_VAR_env_prefix = "test"
             }
