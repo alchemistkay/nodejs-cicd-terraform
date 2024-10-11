@@ -106,7 +106,7 @@ pipeline {
                     sshagent (credentials: ['github-ssh-credential']) {
                         sh 'git config --global user.email "jenkins@example.com"'
                         sh 'git config --global user.name "jenkins"'
-                        sh 'git remote set-url origin git@github.com:cloud-dev101/jenkins-exercises.git'
+                        sh 'git remote set-url origin git@github.com:alchemistkay/nodejs-cicd-terraform.git'
                         sh 'git add .'
                         sh 'git commit -m "ci: version bump"'
                         sh 'git push origin HEAD:main'
